@@ -1,6 +1,6 @@
 # 接收本草知问的匿名处方
 
-更新于 2026-11-10。
+更新于 2026-11-12。
 
 本草知问通过现有处方 API 上传已核对药材，仿真平台保存后进入 `pending_review`，再由平台工作人员审核并创建批次。
 
@@ -42,11 +42,13 @@
 
 `external_no` 是调用方唯一编号，`patient_code` 为匿名编号。本草将报告 UUID 转成大写十六进制，分别加 `BENCAO-` 和 `SIM-` 前缀。
 
-`doses` 要求 1–30，`herbs` 要求 1–100 味且药名不能重复。旧克数协议保持兼容：省略 `unit` 即为 `g`，`grams_per_dose` 大于 0 且不超过 1000。计数饮片使用 `unit="piece"` 与正数 `quantity_per_dose`（每剂片数，支持半片，上限 100 万），`grams_per_dose` 可暂不提供；克单位不能填写片数字段。支持 `normal`、`pre_decoct`、`late_add`、`bag` 四种药组。
+`doses` 要求 1–30，`herbs` 要求 1–100 味且药名不能重复。旧克数协议保持兼容：省略 `unit` 即为 `g`，`grams_per_dose` 大于 0 且不超过 1000。计数饮片使用 `unit="piece"`（片）或 `unit="item"`（枚）与正数 `quantity_per_dose`（每剂原数量，支持正小数，上限 100 万），`grams_per_dose` 可暂不提供；克单位不能填写计数字段。支持 `normal`、`pre_decoct`、`late_add`、`bag` 四种药组。
+
+例如枚单位 `{"name":"演示枚饮片","unit":"item","quantity_per_dose":3,"method":"normal"}`，5 剂保存每剂 3 枚、合计 15 枚，重量待称重；不改写为片或克。
 
 例如 `{"name":"演示计数饮片","unit":"piece","quantity_per_dose":3,"method":"normal"}`，5 剂在平台显示每剂 3 片、合计 15 片、重量待称重。不会把 3 片按 3 克计算。
 
-审核通过前，使用 `herb_grams_per_dose` 按药名补充这些片数的每剂实测总克数，例如 `{"approved":true,"operator":"演示审核员","herb_grams_per_dose":{"演示计数饮片":4.5}}`。示例数字仅用于说明协议，不是每片换算标准。原始片数继续保存，水量只按实际重量计算。未补重量返回 422 / `herb_weight_required`，不更新审核状态或事件；驳回无需称重。补重量字段只接受本处方按片记录的药名，每项大于 0 且不超过 1000 g/剂。
+审核通过前，使用 `herb_grams_per_dose` 按药名补充这些片数的每剂实测总克数，例如 `{"approved":true,"operator":"演示审核员","herb_grams_per_dose":{"演示计数饮片":4.5}}`。示例数字仅用于说明协议，不是每片换算标准。原始枚数 / 片数及各自单位继续保存，水量只按实际重量计算。未补重量返回 422 / `herb_weight_required`，不更新审核状态或事件；驳回无需称重。补重量字段只接受本处方按枚或片记录的药名，每项大于 0 且不超过 1000 g/剂。
 
 数据库继续使用现有 JSON 状态，无需迁移既有克数处方或历史批次。部署时更新接收端后端与前端，再更新本草上传端。旧接收端会拒绝计数协议，本草保留报告并提示升级。
 

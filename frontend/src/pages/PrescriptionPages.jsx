@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { Alert, Button, Space, Table, Tag, message } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import { api } from "../api/client";
-import { herbDose, herbWeight } from "../domain/herb-dose";
+import { herbDose, herbWeight, isCountHerb } from "../domain/herb-dose";
 import { ACCENT_COLOR, BatchStatusTag, Chip, PanelSkeleton } from "../components/Display";
 import { PrescriptionForm, ReviewForm } from "./PrescriptionForm";
 import { HERB_METHOD_LABELS, PRESCRIPTION_STATUS_LABELS, formatBeijingDateTime } from "../domain/labels";
@@ -225,7 +225,7 @@ export function PrescriptionDetailPage() {
 
       <section className="console" style={{ marginTop: 16 }} aria-label="药组构成">
         <div className="section-head"><span className="section-title">药组构成 · 共 {prescription.herbs?.length ?? 0} 条</span></div>
-        {prescription.herbs?.some(h => h.unit === "piece" && h.grams_per_dose == null) && <Alert type="info" showIcon className="banner" message="已保留原始片数，请在审核时补充每剂实测克数，再计算仿真水量。" />}
+        {prescription.herbs?.some(h => isCountHerb(h) && h.grams_per_dose == null) && <Alert type="info" showIcon className="banner" message="已保留原始枚数、片数及单位，请在审核时补充每剂实测克数，再计算仿真水量。" />}
         <Table size="small" rowKey="name" pagination={false} scroll={{ x: 620 }} dataSource={prescription.herbs || []}
                columns={[
                  { title: "饮片", dataIndex: "name", render: (v) => <span className="mono">{v}</span> },

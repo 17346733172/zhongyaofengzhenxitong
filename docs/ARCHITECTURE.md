@@ -23,7 +23,7 @@ flowchart LR
 
 ## 计数与重量
 
-`Herb.unit` 默认 `g`，兼容原 `grams_per_dose` 请求；`piece` 使用 `quantity_per_dose` 保存每剂片数。审核 `herb_grams_per_dose` 仅补计数饮片的实际重量，修改、状态及事件仍在同一事务内提交。批次创建另行验证重量完整，再调用现有 `water_plan`；计数不参与质量加总。现有 JSON 持久化保留新增字段，无需回写历史数据。
+`Herb.unit` 默认 `g`，兼容原 `grams_per_dose` 请求；`piece` / `item` 分别使用 `quantity_per_dose` 保存每剂片数 / 枚数，两个单位不可互换。审核 `herb_grams_per_dose` 仅补计数饮片的实际重量，修改、状态及事件仍在同一事务内提交。批次创建另行验证重量完整，再调用现有 `water_plan`；计数不参与质量加总。现有 JSON 持久化保留新增字段，无需回写历史数据。
 
 ## 目录
 

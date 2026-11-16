@@ -17,3 +17,12 @@ test("补称重后原片数仍保留，旧版克数处方保持兼容", () => {
   assert.equal(herbDose({ grams_per_dose: 9 }, 5), "45 g");
   assert.equal(herbDose({}), "待补充");
 });
+
+test("枚与片独立显示，实测重量不会替代每剂及总计枚数", () => {
+  const herb = { unit: "item", quantity_per_dose: 3, grams_per_dose: null };
+  assert.equal(herbDose(herb), "3 枚");
+  assert.equal(herbDose(herb, 5), "15 枚");
+  assert.equal(herbWeight(herb), "待称重");
+  assert.equal(herbDose({ ...herb, grams_per_dose: 6 }, 5), "15 枚");
+  assert.equal(herbWeight({ ...herb, grams_per_dose: 6 }), "6 g/剂");
+});

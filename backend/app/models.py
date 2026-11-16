@@ -31,9 +31,9 @@ class DeviceKind(StrEnum):
 
 class Herb(Model):
     name: Text
-    grams_per_dose: float | None = Field(default=None, gt=0, le=1000, description="每剂实际克数；片数处方可在审核时补称重")
-    unit: Literal["g", "piece"] = Field(default="g", description="g 为克，piece 为片")
-    quantity_per_dose: float | None = Field(default=None, gt=0, le=1000000, description="每剂片数，可记录半片等小数")
+    grams_per_dose: float | None = Field(default=None, gt=0, le=1000, description="每剂实际克数；计数处方可在审核时补称重")
+    unit: Literal["g", "piece", "item"] = Field(default="g", description="g 为克，piece 为片，item 为枚")
+    quantity_per_dose: float | None = Field(default=None, gt=0, le=1000000, description="每剂枚数或片数，可记录正小数；保留 unit")
     method: Literal["normal", "pre_decoct", "late_add", "bag"] = "normal"
 
     @model_validator(mode="after")
@@ -42,9 +42,9 @@ class Herb(Model):
             if self.grams_per_dose is None:
                 raise ValueError("克单位必须提供每剂克数")
             if self.quantity_per_dose is not None:
-                raise ValueError("克单位不接受片数字段")
+                raise ValueError("克单位不接受计数字段")
         elif self.quantity_per_dose is None:
-            raise ValueError("片单位必须提供每剂片数")
+            raise ValueError("计数单位必须提供每剂数量")
         return self
 
 
@@ -87,7 +87,7 @@ class Review(Model):
     operator: Text
     comment: str = Field(default="", max_length=1000)
     herb_grams_per_dose: dict[Text, Annotated[float, Field(gt=0, le=1000)]] = Field(
-        default_factory=dict, max_length=100, description="按药名补充计数饮片的每剂实测克数，不改变原始片数")
+        default_factory=dict, max_length=100, description="按药名补充计数饮片的每剂实测克数，不改变原始数量和单位")
 
 
 class BatchCreate(Model):

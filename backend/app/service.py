@@ -93,14 +93,14 @@ class Service:
             p = require(s["prescriptions"], prescription_id, "处方")
             if p["status"] != "pending_review":
                 raise DomainError("already_reviewed", "该处方已经审核，不能重复审核")
-            count_herbs = {h["name"] for h in p["herbs"] if h.get("unit") == "piece"}
+            count_herbs = {h["name"] for h in p["herbs"] if h.get("unit") in {"piece", "item"}}
             if set(request.herb_grams_per_dose) - count_herbs:
-                raise DomainError("invalid_herb_weight", "只能为本处方按片记录的饮片补充每剂实测克数", 422)
+                raise DomainError("invalid_herb_weight", "只能为本处方按枚或片记录的饮片补充每剂实测克数", 422)
             herbs = [{**h, "grams_per_dose": request.herb_grams_per_dose[h["name"]]}
                      if h["name"] in request.herb_grams_per_dose else dict(h) for h in p["herbs"]]
             missing = [h["name"] for h in herbs if h.get("grams_per_dose") is None]
             if request.approved and missing:
-                raise DomainError("herb_weight_required", "请先补充" + "、".join(missing) + "的每剂实测克数；片数不自动换算为克", 422)
+                raise DomainError("herb_weight_required", "请先补充" + "、".join(missing) + "的每剂实测克数；枚数、片数不自动换算为克", 422)
             p["herbs"] = herbs
             p["status"] = "approved" if request.approved else "rejected"
             p["review"] = {**request.model_dump(), "sim_time": s["clock"]["now"]}

@@ -3,6 +3,7 @@ import { Alert, Button, Form, Input, InputNumber, Modal, Select, Space, Tag, mes
 import { MinusCircleOutlined, PlusOutlined } from "@ant-design/icons";
 import { api } from "../api/client";
 import { HERB_METHOD_LABELS } from "../domain/labels";
+import { herbUnit, isCountHerb } from "../domain/herb-dose";
 
 const { TextArea } = Input;
 
@@ -136,15 +137,16 @@ export function PrescriptionForm({ open, onClose, onCreated }) {
                     <Input placeholder="饮片名称" style={{ width: 200 }} maxLength={100} />
                   </Form.Item>
                   <Form.Item {...rest} name={[name, "unit"]} noStyle>
-                    <Select aria-label={`第${name + 1}味单位`} style={{ width: 80 }} options={[{ value: "g", label: "克" }, { value: "piece", label: "片" }]}
+                    <Select aria-label={`第${name + 1}味单位`} style={{ width: 80 }} options={[{ value: "g", label: "克" }, { value: "piece", label: "片" }, { value: "item", label: "枚" }]}
                             onChange={() => { form.setFieldValue(["herbs", name, "grams_per_dose"], undefined); form.setFieldValue(["herbs", name, "quantity_per_dose"], undefined); }} />
                   </Form.Item>
                   <Form.Item noStyle shouldUpdate={(previous, current) => previous.herbs?.[name]?.unit !== current.herbs?.[name]?.unit}>
                     {() => {
-                      const piece = form.getFieldValue(["herbs", name, "unit"]) === "piece";
-                      return <Form.Item {...rest} name={[name, piece ? "quantity_per_dose" : "grams_per_dose"]} noStyle preserve={false}
-                                        rules={[{ required: true, message: piece ? "请填写每剂片数" : "请填写每剂克数" }]}>
-                        <InputNumber aria-label={`第${name + 1}味每剂数量`} min={0.000001} max={piece ? 1000000 : 1000} precision={6} style={{ width: 150 }} addonAfter={piece ? "片/剂" : "g/剂"} />
+                      const herb = { unit: form.getFieldValue(["herbs", name, "unit"]) };
+                      const count = isCountHerb(herb);
+                      return <Form.Item {...rest} name={[name, count ? "quantity_per_dose" : "grams_per_dose"]} noStyle preserve={false}
+                                        rules={[{ required: true, message: count ? "请填写每剂数量" : "请填写每剂克数" }]}>
+                        <InputNumber aria-label={`第${name + 1}味每剂数量`} min={0.000001} max={count ? 1000000 : 1000} precision={6} style={{ width: 150 }} addonAfter={`${herbUnit(herb)}/剂`} />
                       </Form.Item>;
                     }}
                   </Form.Item>
@@ -200,7 +202,7 @@ export function ReviewForm({ prescription, open, onClose, onDone }) {
     if (open) {
       form.resetFields();
       form.setFieldsValue({ approved: true, operator: "", comment: "",
-        herb_grams_per_dose: Object.fromEntries((prescription.herbs || []).filter(h => h.unit === "piece" && h.grams_per_dose != null).map(h => [h.name, h.grams_per_dose])) });
+        herb_grams_per_dose: Object.fromEntries((prescription.herbs || []).filter(h => isCountHerb(h) && h.grams_per_dose != null).map(h => [h.name, h.grams_per_dose])) });
     }
   }, [open, form, prescription.id]);
 
@@ -234,9 +236,9 @@ export function ReviewForm({ prescription, open, onClose, onDone }) {
             { value: false, label: "驳回" },
           ]} />
         </Form.Item>
-        {(prescription.herbs || []).filter(h => h.unit === "piece").map(h => (
-          <Form.Item key={h.name} name={["herb_grams_per_dose", h.name]} label={`${h.name}：${h.quantity_per_dose}片/剂，实测重量（g/剂）`}
-                     extra="填写每一剂中这些片数的实际总重量，保留原片数，不按每片默认换算。"
+        {(prescription.herbs || []).filter(isCountHerb).map(h => (
+          <Form.Item key={h.name} name={["herb_grams_per_dose", h.name]} label={`${h.name}：${h.quantity_per_dose}${herbUnit(h)}/剂，实测重量（g/剂）`}
+                     extra="填写每一剂中这些饮片的实际总重量，保留原数量与单位，不按枚数或片数默认换算。"
                      rules={[{ required: approved, message: "审核通过前请补充每剂实测克数" }]}>
             <InputNumber aria-label={`${h.name}每剂实测克数`} disabled={!approved} min={0.000001} max={1000} precision={6} style={{ width: "100%" }} addonAfter="g/剂" />
           </Form.Item>

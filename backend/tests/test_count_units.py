@@ -13,33 +13,38 @@ class CountUnitModelTests(unittest.TestCase):
     def test_legacy_gram_contract_and_count_contract_are_distinct(self):
         grams = Herb(name="演示称重饮片", grams_per_dose=9)
         self.assertEqual(grams.unit, "g")
-        piece = Herb(name="演示计数饮片", unit="piece", quantity_per_dose=0.5)
-        self.assertEqual(piece.quantity_per_dose, 0.5)
-        self.assertIsNone(piece.grams_per_dose)
+        for unit in ["piece", "item"]:
+            count = Herb(name="演示计数饮片", unit=unit, quantity_per_dose=0.5)
+            self.assertEqual(count.unit, unit)
+            self.assertEqual(count.quantity_per_dose, 0.5)
+            self.assertIsNone(count.grams_per_dose)
 
     def test_missing_or_invalid_quantity_cannot_create_a_herb(self):
-        for fields in [{}, {"unit": "piece"}, {"unit": "g", "quantity_per_dose": 3},
+        for fields in [{}, {"unit": "piece"}, {"unit": "item"}, {"unit": "g", "quantity_per_dose": 3},
                        {"grams_per_dose": 9, "quantity_per_dose": 3},
-                       *[{"unit": "piece", "quantity_per_dose": n} for n in [0, -1, float("nan"), float("inf"), 1000001]]]:
+                       *[{"unit": unit, "quantity_per_dose": n} for unit in ["piece", "item"] for n in [0, -1, float("nan"), float("inf"), 1000001]]]:
             with self.subTest(fields=fields), self.assertRaises(ValidationError):
                 Herb(name="演示饮片", **fields)
 
     def test_batch_guard_does_not_treat_pieces_as_grams(self):
-        state = {"prescriptions": {"rx": {"status": "approved", "batch_id": None,
-                 "herbs": [{"name": "演示计数饮片", "unit": "piece", "quantity_per_dose": 3}]}}}
-        with self.assertRaises(DomainError) as caught:
-            Service._batch(state, lambda *args, **kwargs: self.fail("must not emit"), "rx")
-        self.assertEqual(caught.exception.code, "herb_weight_required")
+        for unit in ["piece", "item"]:
+            state = {"prescriptions": {"rx": {"status": "approved", "batch_id": None,
+                     "herbs": [{"name": "演示计数饮片", "unit": unit, "quantity_per_dose": 3}]}}}
+            with self.subTest(unit=unit), self.assertRaises(DomainError) as caught:
+                Service._batch(state, lambda *args, **kwargs: self.fail("must not emit"), "rx")
+            self.assertEqual(caught.exception.code, "herb_weight_required")
 
 
 class CountUnitApiTests(unittest.TestCase):
+    count_unit = "piece"
+
     def setUp(self):
         self.dsn = test_schema(self)
         self.app = create_app(self.dsn, api_key="", enable_runner=False, enable_debug_step=True)
         self.client = self.enterContext(TestClient(self.app))
         response = self.client.post("/api/v1/prescriptions", json={
             "external_no": "COUNT-TEST", "patient_code": "SIM-COUNT", "doses": 5,
-            "herbs": [{"name": "演示计数饮片", "unit": "piece", "quantity_per_dose": 3},
+            "herbs": [{"name": "演示计数饮片", "unit": self.count_unit, "quantity_per_dose": 3},
                       {"name": "演示称重饮片", "grams_per_dose": 9}],
         })
         self.assertEqual(response.status_code, 201, response.text)
@@ -73,7 +78,7 @@ class CountUnitApiTests(unittest.TestCase):
         })
         self.assertEqual(response.status_code, 200, response.text)
         herb = response.json()["herbs"][0]
-        self.assertEqual((herb["unit"], herb["quantity_per_dose"], herb["grams_per_dose"]), ("piece", 3, 4.5))
+        self.assertEqual((herb["unit"], herb["quantity_per_dose"], herb["grams_per_dose"]), (self.count_unit, 3, 4.5))
         response = self.client.post("/api/v1/batches", json={"prescription_id": self.prescription["id"]})
         self.assertEqual(response.status_code, 201, response.text)
         self.assertEqual(response.json()["water_plan"]["herb_mass_g"], 67.5)
@@ -84,3 +89,29 @@ class CountUnitApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(response.json()["status"], "rejected")
         self.assertIsNone(response.json()["herbs"][0]["grams_per_dose"])
+
+
+class ItemUnitApiTests(CountUnitApiTests):
+    count_unit = "item"
+
+    def test_mixed_item_piece_approval_requires_both_weights_without_changing_counts(self):
+        response = self.client.post('/api/v1/prescriptions', json={
+            'external_no': 'MIXED-COUNT', 'patient_code': 'SIM-MIXED', 'doses': 5,
+            'herbs': [{'name': '演示枚饮片', 'unit': 'item', 'quantity_per_dose': 3},
+                      {'name': '演示片饮片', 'unit': 'piece', 'quantity_per_dose': 0.5},
+                      {'name': '演示克饮片', 'grams_per_dose': 9}],
+        })
+        self.assertEqual(response.status_code, 201, response.text)
+        prescription = response.json()
+        path = '/api/v1/prescriptions/' + prescription['id']
+        review = {'approved': True, 'operator': '测试员', 'herb_grams_per_dose': {'演示片饮片': 4.5}}
+        response = self.client.post(path + '/review', json=review)
+        self.assertEqual(response.status_code, 422, response.text)
+        self.assertEqual(self.client.get(path).json(), prescription)
+        review['herb_grams_per_dose']['演示枚饮片'] = 6
+        response = self.client.post(path + '/review', json=review)
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual([(h['unit'], h['quantity_per_dose']) for h in response.json()['herbs'][:2]], [('item', 3), ('piece', 0.5)])
+        response = self.client.post('/api/v1/batches', json={'prescription_id': prescription['id']})
+        self.assertEqual(response.status_code, 201, response.text)
+        self.assertEqual(response.json()['water_plan']['herb_mass_g'], (6 + 4.5 + 9) * 5)
