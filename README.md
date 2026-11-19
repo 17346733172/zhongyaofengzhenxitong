@@ -44,6 +44,16 @@ docker compose up -d --build --wait
 
 ## 快速开始（Windows）
 
+日常使用可双击根目录的 **`启动平台.cmd`**：后台启动本机前端，确认页面就绪后自动打开 `http://127.0.0.1:5173`，重复双击会复用已运行的服务。前端继续读取 `frontend/.env.local` 中的后端连接配置；连接现有服务器时无需另启本机后端。首次使用需安装 Node.js，缺少前端依赖时脚本执行 `npm ci`。
+
+重启电脑会结束本机网页服务，仅恢复浏览器标签页会出现 `ERR_CONNECTION_REFUSED`。在项目根目录执行以下命令，可为当前 Windows 用户启用登录后自动启动（后台运行，不自动弹出浏览器）：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\set-autostart.ps1
+```
+
+之后登录 Windows 即可访问上述页面，也可双击启动入口打开。取消自动启动执行 `powershell -NoProfile -ExecutionPolicy Bypass -File .\set-autostart.ps1 -Disable`；移动项目目录后需重新启用。启动日志在 `cache/frontend.stdout.log`、`cache/frontend.stderr.log`，启动失败原因在 `cache/launcher-error.log`。页面已就绪但后端检查失败时，检查网络与 `frontend/.env.local`，服务器恢复后刷新页面。该入口只启动前端；使用本机 PostgreSQL 后端时仍需按下文启动后端。
+
 直接开发后端时，先在可访问的 PostgreSQL 实例中创建数据库和有建表权限的专用用户。将示例连接地址替换为实际地址，在 PowerShell 执行：
 
 ```powershell
@@ -130,6 +140,8 @@ npm run dev
 ```
 
 开发服务器默认 `http://127.0.0.1:5173`。`/api` 与 `/ws` 由 Vite 代理转发到 `127.0.0.1:8000`，因此不需要额外配置跨域。生产构建用 `npm run build`，产物在 `frontend/dist`。 计量单位显示回归使用 `npm test`。
+
+如果 `8000` 被其他项目占用，可将仿真后端启动在 `8001`，复制 `frontend/.env.example` 为 `frontend/.env.local`，设置 `DECOCTION_DEV_API_TARGET=http://127.0.0.1:8001`。已有服务器后端时也可以填写其 HTTPS 域名，本地前端将操作该服务器的现有仿真数据，无需直连 PostgreSQL 或再启动一份调度器。网关 Basic Auth 填入 `DECOCTION_DEV_HTTP_USERNAME` 和 `DECOCTION_DEV_HTTP_PASSWORD`；远程 WebSocket 来源填入 `DECOCTION_DEV_WS_ORIGIN`，必须是后端已允许的来源。来源替换仅适用于本机 `5173` 页面的请求。上述变量只供本地开发代理使用，认证信息不要使用 `VITE_` 前缀，也不要提交 `.env.local`。配置后重新启动 `npm run dev`；HTTPS 证书保持校验，不能用裸 IP 替代证书域名。
 
 日常操作使用总览、仿真工作台、设备分类、处方和批次，均在当前标签页内切换。设备分类目录为 `/devices`，每类设备进入独立页面，例如煎药锅 `/devices/pot`、浸泡工位 `/devices/soaking`。Swagger 是开发者的接口调试工具，已从前端导航移除；需要调试时直接访问上文的后端接口文档链接。
 

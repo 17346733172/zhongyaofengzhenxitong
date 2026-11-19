@@ -15,6 +15,8 @@ flowchart LR
 
 开发环境下前端的 `/api` 与 `/ws` 由 Vite 代理转发到后端，因此浏览器看到的是同源地址；代理只是转发，不改变接口语义。
 
+Windows 日常入口为根目录 `启动平台.cmd` / `start.ps1`，负责后台启动或复用本机 Vite 服务、等待页面就绪并检查代理的仿真快照接口。它沿用 `frontend/.env.local`，只启动前端。`set-autostart.ps1` 在当前用户的 Windows 启动文件夹维护快捷方式，登录时以 `-NoBrowser` 运行同一入口；可用 `-Disable` 取消。前端输出和启动错误保存在已忽略的 `cache/` 目录。
+
 根目录 `compose.yaml` 编排三个服务。`frontend` 用 Nginx 提供静态页面、SPA 路由回退，并转发 REST、WebSocket 和健康检查到 `backend:8000`。`backend` 以非 root 用户启动单个 Uvicorn worker。`db` 在内网运行 PostgreSQL 17，将数据写入 `postgres-data` 命名卷。Nginx 是唯一发布到宿主机的服务，Compose 按数据库、后端、前端的健康检查顺序启动。
 
 总览、设备页、仿真工作台和批次页共用仿真快照。总览从 `summary` 读取指标，设备页从 `devices` 读取利用率，结合 `batches` 显示批次状态。`/dashboard` 继续提供同一口径的 REST 查询，旧版后端缺少快照汇总时总览和设备页每次查询完成后间隔 3 秒再查。批次详情通过事件游标补充温度采样。
@@ -33,6 +35,9 @@ flowchart LR
 ├── DESIGN.md
 ├── CHANGELOG.md
 ├── TODO.md
+├── 启动平台.cmd                 # Windows 双击启动并打开页面
+├── start.ps1                    # 后台启动或复用本机前端
+├── set-autostart.ps1             # 当前用户登录启动设置与取消
 ├── compose.yaml                 # 前端、后端和 PostgreSQL 服务
 ├── .env.example                 # Compose 部署配置模板
 ├── docs/
